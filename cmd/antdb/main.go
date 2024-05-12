@@ -13,7 +13,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 )
 
@@ -35,16 +34,9 @@ func main() {
 	st := storage.NewEngine(storage.NewMemoryTable(), logger)
 	db := service.NewDatabase(cmp, st, logger)
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
+	startServer(ctx, db)
 
-	go func() {
-		defer wg.Done()
-		startServer(ctx, db)
-	}()
-
-	logger.Debug("started server")
-	wg.Wait()
+	logger.Debug("shutdown server")
 }
 
 func initLogger(logCfg *config.LoggingConfig) (*zap.Logger, error) {

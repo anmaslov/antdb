@@ -9,8 +9,6 @@ var (
 	ErrParse = errors.New("can't parse query")
 
 	ErrInvalidSymbol = errors.New("invalid symbol")
-
-	//ErrInvalidCommand = errors.New("invalid command")
 )
 
 const (
