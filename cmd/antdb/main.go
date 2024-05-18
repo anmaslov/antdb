@@ -2,6 +2,7 @@ package main
 
 import (
 	"antdb/config"
+	"antdb/internal/network"
 	"antdb/internal/service"
 	"antdb/internal/service/compute"
 	"antdb/internal/service/storage"
@@ -13,6 +14,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
@@ -34,7 +36,29 @@ func main() {
 	st := storage.NewEngine(storage.NewMemoryTable(), logger)
 	db := service.NewDatabase(cmp, st, logger)
 
-	startServer(ctx, db)
+	tcpServer, err := network.NewServer(cfg.Network.Address, cfg.Network.MaxConnections, logger)
+	if err != nil {
+		logger.Fatal("can't create tcp server", zap.Error(err))
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		err := tcpServer.Start(ctx, db)
+		if err != nil {
+			logger.Fatal("can't start tcp server", zap.Error(err))
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		startServer(ctx, db)
+	}()
+
+	logger.Debug("started server")
+	wg.Wait()
 
 	logger.Debug("shutdown server")
 }
@@ -59,7 +83,7 @@ func initLogger(logCfg *config.LoggingConfig) (*zap.Logger, error) {
 	return opts.Build()
 }
 
-func startServer(ctx context.Context, db *service.Database) {
+func startServer(ctx context.Context, db service.QueryHandler) {
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		select {

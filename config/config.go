@@ -8,7 +8,18 @@ import (
 )
 
 type Config struct {
+	Engine  *EngineConfig  `yaml:"engine"`
+	Network *NetworkConfig `yaml:"network"`
 	Logging *LoggingConfig `yaml:"logging"`
+}
+
+type EngineConfig struct {
+	Type string `yaml:"type"`
+}
+
+type NetworkConfig struct {
+	Address        string `yaml:"address"`
+	MaxConnections int    `yaml:"max_connections"`
 }
 
 type LoggingConfig struct {
