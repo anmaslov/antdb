@@ -46,7 +46,9 @@ func main() {
 
 	go func() {
 		defer wg.Done()
-		err := tcpServer.Start(ctx, db)
+		err = tcpServer.Start(ctx, func(ctx context.Context, s string) string {
+			return db.HandleQuery(ctx, s)
+		})
 		if err != nil {
 			logger.Fatal("can't start tcp server", zap.Error(err))
 		}

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"net"
 	"os"
 	"syscall"
@@ -15,12 +16,16 @@ func main() {
 	address := flag.String("address", ":3223", "db address")
 	flag.Parse()
 
-	logger, _ := zap.NewProduction()
+	logger, err := initLogger()
+	if err != nil {
+		panic(err)
+	}
 
 	conn, err := net.Dial("tcp", *address)
 	if err != nil {
 		logger.Fatal("failed to connect to server", zap.Error(err))
 	}
+	logger.Info("connected to server")
 
 	defer func() {
 		err := conn.Close()
@@ -33,10 +38,14 @@ func main() {
 	connReader := bufio.NewReader(conn)
 
 	for {
-		fmt.Print("Enter your command: ")
+		fmt.Print("[ANTDB] > ")
 		command, err := consoleReader.ReadString('\n')
 		if err != nil {
 			logger.Error("failed to read", zap.Error(err))
+		}
+
+		if command == "exit\n" {
+			break
 		}
 
 		_, err = conn.Write([]byte(command))
@@ -46,6 +55,7 @@ func main() {
 			}
 
 			logger.Error("failed to send query", zap.Error(err))
+			return
 		}
 
 		response, err := connReader.ReadString('\n')
@@ -55,8 +65,26 @@ func main() {
 			}
 
 			logger.Error("failed to get response", zap.Error(err))
+			return
 		}
 
-		fmt.Println(response)
+		fmt.Print(response)
 	}
+}
+
+func initLogger() (*zap.Logger, error) {
+	opts := zap.Config{
+		Level:       zap.NewAtomicLevelAt(zap.DebugLevel),
+		Development: false,
+		Encoding:    "console",
+		EncoderConfig: zapcore.EncoderConfig{
+			TimeKey:     "ts",
+			MessageKey:  "msg",
+			EncodeTime:  zapcore.ISO8601TimeEncoder, // zapcore.RFC3339TimeEncoder
+			EncodeLevel: zapcore.CapitalColorLevelEncoder,
+		},
+		OutputPaths:      []string{"stdout"},
+		ErrorOutputPaths: []string{"stderr"},
+	}
+	return opts.Build()
 }
