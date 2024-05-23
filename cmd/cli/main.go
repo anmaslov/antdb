@@ -28,8 +28,7 @@ func main() {
 	logger.Info("connected to server")
 
 	defer func() {
-		err := conn.Close()
-		if err != nil {
+		if err = conn.Close(); err != nil {
 			logger.Warn("failed to close connection", zap.Error(err))
 		}
 	}()
@@ -48,8 +47,7 @@ func main() {
 			break
 		}
 
-		_, err = conn.Write([]byte(command))
-		if err != nil {
+		if _, err = conn.Write([]byte(command)); err != nil {
 			if errors.Is(err, syscall.EPIPE) {
 				logger.Fatal("connection was closed", zap.Error(err))
 			}

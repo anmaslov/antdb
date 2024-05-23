@@ -45,17 +45,6 @@ func (s *Server) Start(ctx context.Context, handler TCPHandler) error {
 			}
 
 			go func(connection net.Conn) {
-				if s.semaphore.IsFull() {
-					_, err := connection.Write([]byte("too many connections\n"))
-					if err != nil {
-						s.logger.Warn("can't write response", zap.Error(err))
-					}
-					err = connection.Close()
-					if err != nil {
-						s.logger.Warn("can't close connection", zap.Error(err))
-					}
-					return
-				}
 				s.semaphore.WithSemaphore(func() {
 					s.handleConnection(ctx, connection, handler)
 				})
@@ -66,8 +55,7 @@ func (s *Server) Start(ctx context.Context, handler TCPHandler) error {
 
 func (s *Server) handleConnection(ctx context.Context, conn net.Conn, handler TCPHandler) {
 	defer func() {
-		err := conn.Close()
-		if err != nil {
+		if err := conn.Close(); err != nil {
 			s.logger.Warn("failed to close connection", zap.Error(err))
 		}
 	}()
@@ -84,8 +72,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, handler TC
 			return
 		}
 
-		_, err = conn.Write([]byte(handler(ctx, command) + "\n"))
-		if err != nil {
+		if _, err = conn.Write([]byte(handler(ctx, command) + "\n")); err != nil {
 			s.logger.Warn("can't write response", zap.Error(err))
 		}
 	}

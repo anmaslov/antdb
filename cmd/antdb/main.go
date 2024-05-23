@@ -6,15 +6,12 @@ import (
 	"antdb/internal/service"
 	"antdb/internal/service/compute"
 	"antdb/internal/service/storage"
-	"bufio"
 	"context"
 	"fmt"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"log"
-	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 )
 
@@ -41,26 +38,12 @@ func main() {
 		logger.Fatal("can't create tcp server", zap.Error(err))
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		err = tcpServer.Start(ctx, func(ctx context.Context, s string) string {
-			return db.HandleQuery(ctx, s)
-		})
-		if err != nil {
-			logger.Fatal("can't start tcp server", zap.Error(err))
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		startServer(ctx, db)
-	}()
-
-	logger.Debug("started server")
-	wg.Wait()
+	err = tcpServer.Start(ctx, func(ctx context.Context, s string) string {
+		return db.HandleQuery(ctx, s)
+	})
+	if err != nil {
+		logger.Fatal("can't start tcp server", zap.Error(err))
+	}
 
 	logger.Debug("shutdown server")
 }
@@ -83,20 +66,4 @@ func initLogger(logCfg *config.LoggingConfig) (*zap.Logger, error) {
 	}
 
 	return opts.Build()
-}
-
-func startServer(ctx context.Context, db service.QueryHandler) {
-	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			if !scanner.Scan() {
-				return
-			}
-
-			fmt.Println(db.HandleQuery(ctx, scanner.Text()))
-		}
-	}
 }
