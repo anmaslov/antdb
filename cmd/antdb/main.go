@@ -6,6 +6,9 @@ import (
 	"antdb/internal/service"
 	"antdb/internal/service/compute"
 	"antdb/internal/service/storage"
+	"antdb/internal/service/storage/batch_buffer"
+	"antdb/internal/service/storage/engine"
+	"antdb/internal/service/storage/wal"
 	"context"
 	"fmt"
 	"go.uber.org/zap"
@@ -29,8 +32,21 @@ func main() {
 		log.Fatal("can't init logger", err)
 	}
 
+	buffer := batch_buffer.NewBuffer[wal.Unit](cfg.WAL.FlushingBatchSize)
+	walJournal := wal.NewWAL(wal.NewWriter(), buffer, logger)
+	// если путь до wal файла не задан - не подключаем
+	if cfg.WAL.DataDirectory != "-" {
+		go func() {
+			if err = walJournal.Start(ctx, cfg.WAL.FlushingBatchTimeout); err != nil {
+				logger.Fatal("can't start wal journal", zap.Error(err))
+			}
+		}()
+	} else {
+		walJournal = nil
+	}
+
+	st := storage.NewStorage(engine.NewMemoryTable(), walJournal, logger)
 	cmp := compute.NewCompute(compute.NewParser(), compute.NewAnalyzer(logger), logger)
-	st := storage.NewEngine(storage.NewMemoryTable(), logger)
 	db := service.NewDatabase(cmp, st, logger)
 
 	tcpServer, err := network.NewServer(cfg.Network.Address, cfg.Network.MaxConnections, logger)
