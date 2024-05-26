@@ -1,3 +1,8 @@
+engine:
+  type: "in_memory"
+network:
+  address: ":3223"
+  max_connections: 1
 logging:
   level: "debug"
-  output: "output.log"
+  output: "console"

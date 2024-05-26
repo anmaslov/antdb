@@ -22,6 +22,10 @@ func NewDatabase(compute *compute.Compute, storage *storage.Engine, logger *zap.
 	}
 }
 
+type QueryHandler interface {
+	HandleQuery(ctx context.Context, queryStr string) string
+}
+
 func (d *Database) HandleQuery(ctx context.Context, queryStr string) string {
 	d.logger.Debug("handling query", zap.String("query", queryStr))
 

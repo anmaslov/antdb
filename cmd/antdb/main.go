@@ -2,16 +2,15 @@ package main
 
 import (
 	"antdb/config"
+	"antdb/internal/network"
 	"antdb/internal/service"
 	"antdb/internal/service/compute"
 	"antdb/internal/service/storage"
-	"bufio"
 	"context"
 	"fmt"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"log"
-	"os"
 	"os/signal"
 	"syscall"
 )
@@ -34,7 +33,17 @@ func main() {
 	st := storage.NewEngine(storage.NewMemoryTable(), logger)
 	db := service.NewDatabase(cmp, st, logger)
 
-	startServer(ctx, db)
+	tcpServer, err := network.NewServer(cfg.Network.Address, cfg.Network.MaxConnections, logger)
+	if err != nil {
+		logger.Fatal("can't create tcp server", zap.Error(err))
+	}
+
+	err = tcpServer.Start(ctx, func(ctx context.Context, s string) string {
+		return db.HandleQuery(ctx, s)
+	})
+	if err != nil {
+		logger.Fatal("can't start tcp server", zap.Error(err))
+	}
 
 	logger.Debug("shutdown server")
 }
@@ -57,20 +66,4 @@ func initLogger(logCfg *config.LoggingConfig) (*zap.Logger, error) {
 	}
 
 	return opts.Build()
-}
-
-func startServer(ctx context.Context, db *service.Database) {
-	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			if !scanner.Scan() {
-				return
-			}
-
-			fmt.Println(db.HandleQuery(ctx, scanner.Text()))
-		}
-	}
 }
