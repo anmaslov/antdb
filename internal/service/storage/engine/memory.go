@@ -1,6 +1,8 @@
 package engine
 
-import "sync"
+import (
+	"sync"
+)
 
 type MemoryTable struct {
 	mutex sync.RWMutex

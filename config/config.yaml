@@ -8,6 +8,6 @@ logging:
   output: "console"
 wal:
   flushing_batch_size: 2
-  flushing_batch_timeout: "20s"
-  max_segment_size: "1MB"
-  data_directory: "/data/spider/wal"
+  flushing_batch_timeout: "1s"
+  max_segment_size: "10b"
+  data_directory: "tmp/"

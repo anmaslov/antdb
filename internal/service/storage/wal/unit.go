@@ -3,8 +3,8 @@ package wal
 import "antdb/internal/service/compute"
 
 type Unit struct {
-	command   compute.Command
-	arguments []string
+	Command   string
+	Arguments []string
 }
 
 type UnitData struct {
@@ -14,7 +14,7 @@ type UnitData struct {
 
 func NewUnit(command compute.Command, arguments []string) *Unit {
 	return &Unit{
-		command:   command,
-		arguments: arguments,
+		Command:   string(command),
+		Arguments: arguments,
 	}
 }

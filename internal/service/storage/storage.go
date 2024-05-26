@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"antdb/internal/service/compute"
 	"antdb/internal/service/storage/wal"
 	"context"
 	"fmt"
@@ -19,12 +20,20 @@ type Engine interface {
 	Del(string)
 }
 
-func NewStorage(engine Engine, wal *wal.Wal, logger *zap.Logger) *Storage {
-	return &Storage{
+func NewStorage(engine Engine, wal *wal.Wal, stream <-chan []*wal.Unit, logger *zap.Logger) *Storage {
+	storage := &Storage{
 		engine: engine,
 		wal:    wal,
 		logger: logger,
 	}
+
+	go func() {
+		for unit := range stream {
+			storage.Restore(unit)
+		}
+	}()
+
+	return storage
 }
 
 func (e *Storage) Set(ctx context.Context, key, value string) error {
@@ -61,4 +70,17 @@ func (e *Storage) Del(ctx context.Context, key string) error {
 
 	e.engine.Del(key)
 	return nil
+}
+
+func (e *Storage) Restore(units []*wal.Unit) {
+	for _, unit := range units {
+		if unit.Command == string(compute.SetCommand) {
+			e.engine.Set(unit.Arguments[0], unit.Arguments[1])
+			continue
+		}
+		if unit.Command == string(compute.DelCommand) {
+			e.engine.Del(unit.Arguments[0])
+			continue
+		}
+	}
 }

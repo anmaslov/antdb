@@ -10,20 +10,27 @@ import (
 
 type Wal struct {
 	walWriter *Writer
+	walReader *Reader
 	//walReader walReader
 	buffer *buffer
 	logger *zap.Logger
 }
 
-func NewWAL(walWriter *Writer, buffer *buffer, logger *zap.Logger) *Wal {
+func NewWAL(walWriter *Writer, walReader *Reader, buffer *buffer, logger *zap.Logger) *Wal {
 	return &Wal{
 		walWriter: walWriter,
+		walReader: walReader,
 		buffer:    buffer,
 		logger:    logger,
 	}
 }
 
 func (w *Wal) Start(ctx context.Context, timeout time.Duration) error {
+	err := w.walReader.Read()
+	if err != nil {
+		return fmt.Errorf("can't read wal: %w", err)
+	}
+
 	NewWatcher(w.buffer).Watch(ctx, timeout, w.walWriter)
 	return nil
 }
