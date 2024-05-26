@@ -6,7 +6,6 @@ import (
 	"antdb/internal/service"
 	"antdb/internal/service/compute"
 	"antdb/internal/service/storage"
-	"antdb/internal/service/storage/batch_buffer"
 	"antdb/internal/service/storage/engine"
 	"antdb/internal/service/storage/wal"
 	"context"
@@ -32,7 +31,7 @@ func main() {
 		log.Fatal("can't init logger", err)
 	}
 
-	buffer := batch_buffer.NewBuffer[wal.Unit](cfg.WAL.FlushingBatchSize)
+	buffer := wal.NewBuffer(cfg.WAL.FlushingBatchSize)
 	walJournal := wal.NewWAL(wal.NewWriter(), buffer, logger)
 	// если путь до wal файла не задан - не подключаем
 	if cfg.WAL.DataDirectory != "-" {

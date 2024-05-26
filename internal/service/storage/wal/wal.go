@@ -2,26 +2,20 @@ package wal
 
 import (
 	"antdb/internal/service/compute"
-	"antdb/internal/service/storage/batch_buffer"
 	"context"
+	"fmt"
 	"go.uber.org/zap"
 	"time"
 )
 
-type Unit struct {
-	command   compute.Command
-	arguments []string
-}
-
 type Wal struct {
 	walWriter *Writer
 	//walReader walReader
-	buffer batch_buffer.Buffer[Unit]
-
+	buffer *buffer
 	logger *zap.Logger
 }
 
-func NewWAL(walWriter *Writer, buffer batch_buffer.Buffer[Unit], logger *zap.Logger) *Wal {
+func NewWAL(walWriter *Writer, buffer *buffer, logger *zap.Logger) *Wal {
 	return &Wal{
 		walWriter: walWriter,
 		buffer:    buffer,
@@ -30,26 +24,24 @@ func NewWAL(walWriter *Writer, buffer batch_buffer.Buffer[Unit], logger *zap.Log
 }
 
 func (w *Wal) Start(ctx context.Context, timeout time.Duration) error {
-	w.logger.Info("todo start watcher")
-	watcher := batch_buffer.NewWatcher(w.buffer)
-	watcher.Watch(ctx, timeout, w.walWriter)
+	NewWatcher(w.buffer).Watch(ctx, timeout, w.walWriter)
 	return nil
 }
 
 func (w *Wal) Set(ctx context.Context, key, value string) error {
-	w.buffer.Push(ctx, Unit{
-		command:   compute.SetCommand,
-		arguments: []string{key, value},
-	})
+	errCh := w.buffer.Push(ctx, NewUnit(compute.SetCommand, []string{key, value}))
+	if err := <-errCh; err != nil {
+		return fmt.Errorf("can't push to buffer: %w", err)
+	}
 
 	return nil
 }
 
 func (w *Wal) Del(ctx context.Context, key string) error {
-	w.buffer.Push(ctx, Unit{
-		command:   compute.DelCommand,
-		arguments: []string{key},
-	})
+	errCh := w.buffer.Push(ctx, NewUnit(compute.DelCommand, []string{key}))
+	if err := <-errCh; err != nil {
+		return fmt.Errorf("can't push to buffer: %w", err)
+	}
 
 	return nil
 }
