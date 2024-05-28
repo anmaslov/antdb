@@ -11,9 +11,8 @@ import (
 type Wal struct {
 	walWriter *Writer
 	walReader *Reader
-	//walReader walReader
-	buffer *buffer
-	logger *zap.Logger
+	buffer    *buffer
+	logger    *zap.Logger
 }
 
 func NewWAL(walWriter *Writer, walReader *Reader, buffer *buffer, logger *zap.Logger) *Wal {

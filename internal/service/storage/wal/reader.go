@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go.uber.org/zap"
 	"os"
+	"path"
 	"sort"
 	"strings"
 )
@@ -25,6 +26,7 @@ func NewReader(dir string, logger *zap.Logger) *Reader {
 }
 
 func (r *Reader) Read() error {
+	defer close(r.stream)
 	files, err := os.ReadDir(r.directory)
 	if err != nil {
 		return fmt.Errorf("can't read wal directory: %w", err)
@@ -41,7 +43,7 @@ func (r *Reader) Read() error {
 	sort.Strings(segments) // asc
 
 	for _, segment := range segments {
-		file, err := os.ReadFile(r.directory + segment)
+		file, err := os.ReadFile(path.Join(r.directory, segment))
 		if err != nil {
 			return fmt.Errorf("can't open segment [%s]: %w", segment, err)
 		}
@@ -58,7 +60,6 @@ func (r *Reader) Read() error {
 		}
 	}
 
-	close(r.stream)
 	return nil
 }
 

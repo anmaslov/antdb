@@ -9,5 +9,5 @@ logging:
 wal:
   flushing_batch_size: 2
   flushing_batch_timeout: "1s"
-  max_segment_size: "10b"
-  data_directory: "tmp/"
+  max_segment_size: "100b"
+  data_directory: "tmp"
