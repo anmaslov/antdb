@@ -27,11 +27,9 @@ func NewStorage(engine Engine, wal *wal.Wal, stream <-chan []*wal.Unit, logger *
 		logger: logger,
 	}
 
-	go func() {
-		for unit := range stream {
-			storage.Restore(unit)
-		}
-	}()
+	for unit := range stream {
+		storage.Restore(unit)
+	}
 
 	return storage
 }

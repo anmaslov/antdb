@@ -73,6 +73,11 @@ func (w *Writer) Write(unitsData []*Unit) error {
 	if err != nil {
 		return fmt.Errorf("can't write data: %w", err)
 	}
+
+	err = w.file.Sync()
+	if err != nil {
+		return fmt.Errorf("can't sync file: %w", err)
+	}
 	w.currentSegmentSize += bufSize
 
 	return nil

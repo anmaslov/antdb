@@ -35,11 +35,7 @@ func (b *buffer) Push(ctx context.Context, unit *Unit) chan error {
 	b.values = append(b.values, &UnitData{Unit: unit, ErrChan: errorCh})
 
 	if len(b.values) >= b.limit && len(b.oversize) == 0 {
-		select {
-		case b.oversize <- struct{}{}:
-		case <-ctx.Done():
-			return nil
-		}
+		b.oversize <- struct{}{}
 	}
 
 	return errorCh
@@ -56,7 +52,7 @@ func (b *buffer) PopAll() []*UnitData {
 	// нужно ставить len, а не cap, так как: The number of elements copied is the minimum of len(src) and len(dst)
 	copyValues := make([]*UnitData, len(b.values))
 	copy(copyValues, b.values) // b.values возвращать не можем чтобы не было race condition - поэтому копируем
-	b.values = b.values[:0]
+	b.values = nil
 	return copyValues
 }
 
