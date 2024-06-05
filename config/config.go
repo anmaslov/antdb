@@ -5,6 +5,7 @@ import (
 	yaml "gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -19,6 +20,7 @@ type Config struct {
 	Engine  *EngineConfig  `yaml:"engine"`
 	Network *NetworkConfig `yaml:"network"`
 	Logging *LoggingConfig `yaml:"logging"`
+	WAL     *WALConfig     `yaml:"wal"`
 }
 
 type EngineConfig struct {
@@ -33,6 +35,13 @@ type NetworkConfig struct {
 type LoggingConfig struct {
 	Level  string `yaml:"level"`
 	Output string `yaml:"output"`
+}
+
+type WALConfig struct {
+	FlushingBatchSize    int           `yaml:"flushing_batch_size"`
+	FlushingBatchTimeout time.Duration `yaml:"flushing_batch_timeout"`
+	MaxSegmentSize       string        `yaml:"max_segment_size"`
+	DataDirectory        string        `yaml:"data_directory"`
 }
 
 func GetConfig() (*Config, error) {
@@ -69,5 +78,17 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Logging.Output == "" {
 		cfg.Logging.Output = LoggingOutput
+	}
+	if cfg.WAL.FlushingBatchSize == 0 {
+		cfg.WAL.FlushingBatchSize = 5
+	}
+	if cfg.WAL.FlushingBatchTimeout == 0 {
+		cfg.WAL.FlushingBatchTimeout = 10 * time.Millisecond
+	}
+	if cfg.WAL.MaxSegmentSize == "" {
+		cfg.WAL.MaxSegmentSize = "5MB"
+	}
+	if cfg.WAL.DataDirectory == "" {
+		cfg.WAL.DataDirectory = "-"
 	}
 }

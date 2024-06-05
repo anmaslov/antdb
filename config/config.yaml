@@ -2,7 +2,12 @@ engine:
   type: "in_memory"
 network:
   address: ":3223"
-  max_connections: 1
+  max_connections: 5
 logging:
   level: "debug"
   output: "console"
+wal:
+  flushing_batch_size: 2
+  flushing_batch_timeout: "1s"
+  max_segment_size: "100b"
+  data_directory: "tmp"

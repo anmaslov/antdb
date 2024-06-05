@@ -10,11 +10,11 @@ import (
 
 type Database struct {
 	compute *compute.Compute
-	storage *storage.Engine
+	storage *storage.Storage
 	logger  *zap.Logger
 }
 
-func NewDatabase(compute *compute.Compute, storage *storage.Engine, logger *zap.Logger) *Database {
+func NewDatabase(compute *compute.Compute, storage *storage.Storage, logger *zap.Logger) *Database {
 	return &Database{
 		compute: compute,
 		storage: storage,
@@ -36,21 +36,38 @@ func (d *Database) HandleQuery(ctx context.Context, queryStr string) string {
 
 	switch query.GetCommand() {
 	case compute.SetCommand:
-		d.storage.Set(ctx, query.GetArguments()[0], query.GetArguments()[1])
-		return "[OK]"
-
+		return d.handleSet(ctx, query)
 	case compute.GetCommand:
-		val, ok := d.storage.Get(ctx, query.GetArguments()[0])
-		if !ok {
-			return fmt.Sprintf("[error] not found")
-		}
-		return fmt.Sprintf("[ok] %s", val)
-
+		return d.handleGet(ctx, query)
 	case compute.DelCommand:
-		d.storage.Del(ctx, query.GetArguments()[0])
-		return "[OK]"
+		return d.handleDel(ctx, query)
 	}
 
 	d.logger.Error("can't handle query", zap.String("query", queryStr))
 	return "[error] internal error"
+}
+
+func (d *Database) handleSet(ctx context.Context, query *compute.Query) string {
+	err := d.storage.Set(ctx, query.GetArguments()[0], query.GetArguments()[1])
+	if err != nil {
+		return fmt.Sprintf("[error] %s", err.Error())
+	}
+
+	return "[ok]"
+}
+
+func (d *Database) handleGet(ctx context.Context, query *compute.Query) string {
+	val, err := d.storage.Get(ctx, query.GetArguments()[0])
+	if err != nil {
+		return fmt.Sprintf("[error] %s", err.Error())
+	}
+	return fmt.Sprintf("[ok] %s", val)
+}
+
+func (d *Database) handleDel(ctx context.Context, query *compute.Query) string {
+	if err := d.storage.Del(ctx, query.GetArguments()[0]); err != nil {
+		return fmt.Sprintf("[error] %s", err.Error())
+	}
+
+	return "[ok]"
 }

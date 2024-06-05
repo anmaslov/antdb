@@ -6,6 +6,9 @@ import (
 	"antdb/internal/service"
 	"antdb/internal/service/compute"
 	"antdb/internal/service/storage"
+	"antdb/internal/service/storage/engine"
+	"antdb/internal/service/storage/wal"
+	"antdb/internal/tools"
 	"context"
 	"fmt"
 	"go.uber.org/zap"
@@ -29,8 +32,24 @@ func main() {
 		log.Fatal("can't init logger", err)
 	}
 
+	maxSegmentSize, err := tools.ParseSize(cfg.WAL.MaxSegmentSize)
+	if err != nil {
+		logger.Fatal("can't parse max segment size", zap.Error(err))
+	}
+
+	buffer := wal.NewBuffer(cfg.WAL.FlushingBatchSize)
+	walWriter := wal.NewWriter(cfg.WAL.DataDirectory, maxSegmentSize, logger)
+	walReader := wal.NewReader(cfg.WAL.DataDirectory, logger)
+	walJournal := wal.NewWAL(walWriter, walReader, buffer, logger)
+
+	go func() {
+		if err = walJournal.Start(ctx, cfg.WAL.FlushingBatchTimeout); err != nil {
+			logger.Fatal("can't start wal journal", zap.Error(err))
+		}
+	}()
+
+	st := storage.NewStorage(engine.NewMemoryTable(), walJournal, walReader.GetStream(), logger)
 	cmp := compute.NewCompute(compute.NewParser(), compute.NewAnalyzer(logger), logger)
-	st := storage.NewEngine(storage.NewMemoryTable(), logger)
 	db := service.NewDatabase(cmp, st, logger)
 
 	tcpServer, err := network.NewServer(cfg.Network.Address, cfg.Network.MaxConnections, logger)
