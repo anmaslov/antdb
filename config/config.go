@@ -12,6 +12,7 @@ const (
 	EngineTypeMemory = "in_memory"
 	NetworkAddress   = ":3223"
 	MaxConnections   = 1
+	MessageSize      = "1KB"
 	LoggingLevel     = "debug"
 	LoggingOutput    = "console"
 )
@@ -30,6 +31,7 @@ type EngineConfig struct {
 type NetworkConfig struct {
 	Address        string `yaml:"address"`
 	MaxConnections int    `yaml:"max_connections"`
+	MessageSize    string `yaml:"message_size"`
 }
 
 type LoggingConfig struct {
@@ -72,6 +74,9 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Network.MaxConnections == 0 {
 		cfg.Network.MaxConnections = MaxConnections
+	}
+	if cfg.Network.MessageSize == "" {
+		cfg.Network.MessageSize = MessageSize
 	}
 	if cfg.Logging.Level == "" {
 		cfg.Logging.Level = LoggingLevel

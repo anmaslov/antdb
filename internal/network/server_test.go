@@ -15,13 +15,13 @@ func TestServer(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	server, err := NewServer(":3223", 10, zap.NewNop())
+	server, err := NewServer(":3223", 10, 1024, zap.NewNop())
 	require.NoError(t, err)
 	require.NotNil(t, server)
 
 	go func() {
-		err = server.Start(ctx, func(ctx context.Context, s string) string {
-			return "ok\n"
+		err = server.Start(ctx, func(ctx context.Context, s []byte) []byte {
+			return []byte("ok\n")
 		})
 		require.NoError(t, err)
 	}()

@@ -9,22 +9,28 @@ import (
 )
 
 type Server struct {
-	address   string
-	semaphore *Semaphore
-	logger    *zap.Logger
+	address     string
+	messageSize int
+	semaphore   *Semaphore
+	logger      *zap.Logger
 }
 
-type TCPHandler = func(context.Context, string) string
+type TCPHandler = func(context.Context, []byte) []byte
 
-func NewServer(address string, maxConnectionsNumber int, logger *zap.Logger) (*Server, error) {
+func NewServer(address string, maxConnectionsNumber int, messageSize int, logger *zap.Logger) (*Server, error) {
 	if maxConnectionsNumber < 1 {
 		return nil, errors.New("invalid max connections")
 	}
 
+	if messageSize < 1 {
+		return nil, errors.New("invalid message size")
+	}
+
 	return &Server{
-		address:   address,
-		semaphore: NewSemaphore(maxConnectionsNumber),
-		logger:    logger,
+		address:     address,
+		semaphore:   NewSemaphore(maxConnectionsNumber),
+		messageSize: messageSize,
+		logger:      logger,
 	}, nil
 }
 
@@ -64,15 +70,16 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, handler TC
 		return
 	}
 
+	buf := make([]byte, s.messageSize)
 	reader := bufio.NewReader(conn)
 	for {
-		command, err := reader.ReadString('\n')
+		count, err := reader.Read(buf)
 		if err != nil {
-			s.logger.Warn("can't read command", zap.Error(err))
+			s.logger.Warn("can't read response", zap.Error(err))
 			return
 		}
 
-		if _, err = conn.Write([]byte(handler(ctx, command) + "\n")); err != nil {
+		if _, err = conn.Write(handler(ctx, buf[:count])); err != nil {
 			s.logger.Warn("can't write response", zap.Error(err))
 		}
 	}

@@ -3,6 +3,7 @@ engine:
 network:
   address: ":3223"
   max_connections: 5
+  message_size: "1KB"
 logging:
   level: "debug"
   output: "console"

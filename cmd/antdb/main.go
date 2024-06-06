@@ -52,13 +52,18 @@ func main() {
 	cmp := compute.NewCompute(compute.NewParser(), compute.NewAnalyzer(logger), logger)
 	db := service.NewDatabase(cmp, st, logger)
 
-	tcpServer, err := network.NewServer(cfg.Network.Address, cfg.Network.MaxConnections, logger)
+	messageSize, err := tools.ParseSize(cfg.Network.MessageSize)
+	if err != nil {
+		logger.Fatal("can't parse message size", zap.Error(err))
+	}
+
+	tcpServer, err := network.NewServer(cfg.Network.Address, cfg.Network.MaxConnections, messageSize, logger)
 	if err != nil {
 		logger.Fatal("can't create tcp server", zap.Error(err))
 	}
 
-	err = tcpServer.Start(ctx, func(ctx context.Context, s string) string {
-		return db.HandleQuery(ctx, s)
+	err = tcpServer.Start(ctx, func(ctx context.Context, s []byte) []byte {
+		return []byte(db.HandleQuery(ctx, string(s)) + "\n")
 	})
 	if err != nil {
 		logger.Fatal("can't start tcp server", zap.Error(err))
