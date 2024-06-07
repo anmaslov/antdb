@@ -2,6 +2,7 @@ package storage
 
 import (
 	"antdb/internal/service/compute"
+	"antdb/internal/service/storage/replication"
 	"antdb/internal/service/storage/wal"
 	"context"
 	"fmt"
@@ -9,9 +10,10 @@ import (
 )
 
 type Storage struct {
-	engine Engine
-	wal    *wal.Wal
-	logger *zap.Logger
+	engine      Engine
+	wal         *wal.Wal
+	replication *replication.Replication
+	logger      *zap.Logger
 }
 
 type Engine interface {
@@ -20,11 +22,17 @@ type Engine interface {
 	Del(string)
 }
 
-func NewStorage(engine Engine, wal *wal.Wal, stream <-chan []*wal.Unit, logger *zap.Logger) *Storage {
+func NewStorage(engine Engine,
+	wal *wal.Wal,
+	replication *replication.Replication,
+	stream <-chan []*wal.Unit,
+	logger *zap.Logger,
+) *Storage {
 	storage := &Storage{
-		engine: engine,
-		wal:    wal,
-		logger: logger,
+		engine:      engine,
+		wal:         wal,
+		replication: replication,
+		logger:      logger,
 	}
 
 	for unit := range stream {

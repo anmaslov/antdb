@@ -3,6 +3,7 @@ package main
 import (
 	"antdb/config"
 	"antdb/internal/network"
+	"antdb/internal/prepare"
 	"antdb/internal/service"
 	"antdb/internal/service/compute"
 	"antdb/internal/service/storage"
@@ -48,13 +49,33 @@ func main() {
 		}
 	}()
 
-	st := storage.NewStorage(engine.NewMemoryTable(), walJournal, walReader.GetStream(), logger)
+	st := storage.NewStorage(engine.NewMemoryTable(), walJournal, nil, walReader.GetStream(), logger)
 	cmp := compute.NewCompute(compute.NewParser(), compute.NewAnalyzer(logger), logger)
 	db := service.NewDatabase(cmp, st, logger)
 
 	messageSize, err := tools.ParseSize(cfg.Network.MessageSize)
 	if err != nil {
 		logger.Fatal("can't parse message size", zap.Error(err))
+	}
+
+	if cfg.ReplicationConfig.ReplicaType == "master" {
+		replication, err := prepare.CreateMasterReplication(ctx, cfg.ReplicationConfig, logger)
+		if err != nil {
+			logger.Fatal("can't create master replication", zap.Error(err))
+		}
+		err = replication.Start(ctx)
+		if err != nil {
+			logger.Fatal("can't start master replication", zap.Error(err))
+		}
+	} else {
+		replication, err := prepare.CreateSlaveReplication(ctx, cfg.ReplicationConfig, logger)
+		if err != nil {
+			logger.Fatal("can't create slave replication", zap.Error(err))
+		}
+		err = replication.Start(ctx)
+		if err != nil {
+			logger.Fatal("can't start slave replication", zap.Error(err))
+		}
 	}
 
 	tcpServer, err := network.NewServer(cfg.Network.Address, cfg.Network.MaxConnections, messageSize, logger)
