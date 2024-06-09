@@ -104,6 +104,9 @@ func setDefaults(cfg *Config) {
 	if cfg.WAL.DataDirectory == "" {
 		cfg.WAL.DataDirectory = "-"
 	}
+	if cfg.WAL.DataDirectory == "" {
+		cfg.WAL.DataDirectory = "-"
+	}
 	if cfg.ReplicationConfig.ReplicaType == "" {
 		cfg.ReplicationConfig.ReplicaType = "slave"
 	}

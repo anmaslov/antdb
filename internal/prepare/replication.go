@@ -4,44 +4,41 @@ import (
 	"antdb/config"
 	"antdb/internal/network"
 	"antdb/internal/service/storage/replication"
-	"context"
-	"fmt"
+	"antdb/internal/service/storage/wal"
 	"go.uber.org/zap"
 )
 
+const (
+	maxMasterConnections = 5
+	messageSize          = 10 << 20
+)
+
 func CreateMasterReplication(
-	ctx context.Context,
-	cfg *config.ReplicationConfig,
+	replicationCfg *config.ReplicationConfig,
+	walCfg *config.WALConfig,
 	log *zap.Logger,
 ) (*replication.Master, error) {
 	replicaServer, err := network.NewServer(
-		cfg.MasterAddress,
-		5,
-		10<<20,
+		replicationCfg.MasterAddress,
+		maxMasterConnections,
+		messageSize,
 		log)
 	if err != nil {
 		log.Fatal("can't create replica server", zap.Error(err))
 	}
-	replicaMaster := replication.NewMaster(replicaServer)
-	err = replicaMaster.Start(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("can't start replica server: %w", err)
-	}
-
-	return replicaMaster, nil
+	return replication.NewMaster(replicaServer, walCfg.DataDirectory, log), nil
 }
 
 func CreateSlaveReplication(
-	ctx context.Context,
-	cfg *config.ReplicationConfig,
+	replicationCfg *config.ReplicationConfig,
+	walCfg *config.WALConfig,
+	streamCh chan []*wal.Unit,
 	log *zap.Logger,
 ) (*replication.Slave, error) {
-	replicationClient, err := replication.NewSlave(cfg.MasterAddress, cfg.SyncInterval, "dir", log)
-	if err != nil {
-		return nil, fmt.Errorf("can't create replication client: %w", err)
-	}
-
-	replicationClient.Start(ctx)
-
-	return nil, nil
+	return replication.NewSlave(
+		replicationCfg.MasterAddress,
+		replicationCfg.SyncInterval,
+		walCfg.DataDirectory,
+		streamCh,
+		log)
 }

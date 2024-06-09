@@ -8,6 +8,7 @@ import (
 	"antdb/internal/service/compute"
 	"antdb/internal/service/storage"
 	"antdb/internal/service/storage/engine"
+	"antdb/internal/service/storage/replication"
 	"antdb/internal/service/storage/wal"
 	"antdb/internal/tools"
 	"context"
@@ -16,6 +17,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"log"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
@@ -49,46 +51,58 @@ func main() {
 		}
 	}()
 
-	st := storage.NewStorage(engine.NewMemoryTable(), walJournal, nil, walReader.GetStream(), logger)
-	cmp := compute.NewCompute(compute.NewParser(), compute.NewAnalyzer(logger), logger)
-	db := service.NewDatabase(cmp, st, logger)
-
-	messageSize, err := tools.ParseSize(cfg.Network.MessageSize)
-	if err != nil {
-		logger.Fatal("can't parse message size", zap.Error(err))
-	}
-
+	streamCh := make(chan []*wal.Unit)
+	var replica replication.Replication
 	if cfg.ReplicationConfig.ReplicaType == "master" {
-		replication, err := prepare.CreateMasterReplication(ctx, cfg.ReplicationConfig, logger)
+		replica, err = prepare.CreateMasterReplication(cfg.ReplicationConfig, cfg.WAL, logger)
 		if err != nil {
 			logger.Fatal("can't create master replication", zap.Error(err))
 		}
-		err = replication.Start(ctx)
-		if err != nil {
-			logger.Fatal("can't start master replication", zap.Error(err))
-		}
 	} else {
-		replication, err := prepare.CreateSlaveReplication(ctx, cfg.ReplicationConfig, logger)
+		replica, err = prepare.CreateSlaveReplication(cfg.ReplicationConfig, cfg.WAL, streamCh, logger)
 		if err != nil {
 			logger.Fatal("can't create slave replication", zap.Error(err))
 		}
-		err = replication.Start(ctx)
+	}
+
+	st := storage.NewStorage(engine.NewMemoryTable(), walJournal, replica, walReader.GetStream(), streamCh, logger)
+	cmp := compute.NewCompute(compute.NewParser(), compute.NewAnalyzer(logger), logger)
+	db := service.NewDatabase(cmp, st, logger)
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+
+		err = replica.Start(ctx)
 		if err != nil {
 			logger.Fatal("can't start slave replication", zap.Error(err))
 		}
-	}
+	}()
 
-	tcpServer, err := network.NewServer(cfg.Network.Address, cfg.Network.MaxConnections, messageSize, logger)
-	if err != nil {
-		logger.Fatal("can't create tcp server", zap.Error(err))
-	}
+	go func() {
+		defer wg.Done()
 
-	err = tcpServer.Start(ctx, func(ctx context.Context, s []byte) []byte {
-		return []byte(db.HandleQuery(ctx, string(s)) + "\n")
-	})
-	if err != nil {
-		logger.Fatal("can't start tcp server", zap.Error(err))
-	}
+		messageSize, err := tools.ParseSize(cfg.Network.MessageSize)
+		if err != nil {
+			logger.Fatal("can't parse message size", zap.Error(err))
+		}
+
+		tcpServer, err := network.NewServer(cfg.Network.Address, cfg.Network.MaxConnections, messageSize, logger)
+		if err != nil {
+			logger.Fatal("can't create tcp server", zap.Error(err))
+		}
+
+		err = tcpServer.Start(ctx, func(ctx context.Context, s []byte) []byte {
+			return []byte(db.HandleQuery(ctx, string(s)) + "\n")
+		})
+		if err != nil {
+			logger.Fatal("can't start tcp server", zap.Error(err))
+		}
+
+	}()
+
+	wg.Wait()
 
 	logger.Debug("shutdown server")
 }
