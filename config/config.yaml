@@ -12,7 +12,6 @@ wal:
   flushing_batch_timeout: "1s"
   max_segment_size: "100b"
   data_directory: "tmp"
-  journal_directory: "tmp1"
 replication:
   replica_type: "master"
   master_address: ":3232"
