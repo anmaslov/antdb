@@ -11,16 +11,19 @@ import (
 const (
 	EngineTypeMemory = "in_memory"
 	NetworkAddress   = ":3223"
+	MasterAddress    = ":3232"
 	MaxConnections   = 1
+	MessageSize      = "1KB"
 	LoggingLevel     = "debug"
 	LoggingOutput    = "console"
 )
 
 type Config struct {
-	Engine  *EngineConfig  `yaml:"engine"`
-	Network *NetworkConfig `yaml:"network"`
-	Logging *LoggingConfig `yaml:"logging"`
-	WAL     *WALConfig     `yaml:"wal"`
+	Engine            *EngineConfig      `yaml:"engine"`
+	Network           *NetworkConfig     `yaml:"network"`
+	Logging           *LoggingConfig     `yaml:"logging"`
+	WAL               *WALConfig         `yaml:"wal"`
+	ReplicationConfig *ReplicationConfig `yaml:"replication"`
 }
 
 type EngineConfig struct {
@@ -30,6 +33,7 @@ type EngineConfig struct {
 type NetworkConfig struct {
 	Address        string `yaml:"address"`
 	MaxConnections int    `yaml:"max_connections"`
+	MessageSize    string `yaml:"message_size"`
 }
 
 type LoggingConfig struct {
@@ -42,6 +46,12 @@ type WALConfig struct {
 	FlushingBatchTimeout time.Duration `yaml:"flushing_batch_timeout"`
 	MaxSegmentSize       string        `yaml:"max_segment_size"`
 	DataDirectory        string        `yaml:"data_directory"`
+}
+
+type ReplicationConfig struct {
+	ReplicaType   string        `yaml:"replica_type"`
+	MasterAddress string        `yaml:"master_address"`
+	SyncInterval  time.Duration `yaml:"sync_interval"`
 }
 
 func GetConfig() (*Config, error) {
@@ -73,6 +83,9 @@ func setDefaults(cfg *Config) {
 	if cfg.Network.MaxConnections == 0 {
 		cfg.Network.MaxConnections = MaxConnections
 	}
+	if cfg.Network.MessageSize == "" {
+		cfg.Network.MessageSize = MessageSize
+	}
 	if cfg.Logging.Level == "" {
 		cfg.Logging.Level = LoggingLevel
 	}
@@ -90,5 +103,17 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.WAL.DataDirectory == "" {
 		cfg.WAL.DataDirectory = "-"
+	}
+	if cfg.WAL.DataDirectory == "" {
+		cfg.WAL.DataDirectory = "-"
+	}
+	if cfg.ReplicationConfig.ReplicaType == "" {
+		cfg.ReplicationConfig.ReplicaType = "slave"
+	}
+	if cfg.ReplicationConfig.SyncInterval == 0 {
+		cfg.ReplicationConfig.SyncInterval = time.Second
+	}
+	if cfg.ReplicationConfig.MasterAddress == "" {
+		cfg.ReplicationConfig.MasterAddress = MasterAddress
 	}
 }
