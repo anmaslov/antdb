@@ -19,6 +19,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -64,6 +65,10 @@ func main() {
 			logger.Fatal("can't create slave replication", zap.Error(err))
 		}
 	}
+	if cfg.WAL.Compaction {
+		logger.Warn("disable replication for compaction")
+		replica = nil
+	}
 
 	st := storage.NewStorage(engine.NewMemoryTable(), walJournal, replica, walReader.GetStream(), streamCh, logger)
 	cmp := compute.NewCompute(compute.NewParser(), compute.NewAnalyzer(logger), logger)
@@ -74,9 +79,17 @@ func main() {
 	go func() {
 		defer wg.Done()
 
-		err = replica.Start(ctx)
-		if err != nil {
-			logger.Fatal("can't start slave replication", zap.Error(err))
+		if cfg.WAL.Compaction {
+			compaction := wal.NewCompaction(cfg.WAL.DataDirectory, time.Second*5, logger)
+			err = compaction.Start(ctx)
+			if err != nil {
+				logger.Fatal("can't start compaction", zap.Error(err))
+			}
+		} else {
+			err = replica.Start(ctx)
+			if err != nil {
+				logger.Fatal("can't start slave replication", zap.Error(err))
+			}
 		}
 	}()
 

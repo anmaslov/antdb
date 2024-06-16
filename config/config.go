@@ -46,6 +46,7 @@ type WALConfig struct {
 	FlushingBatchTimeout time.Duration `yaml:"flushing_batch_timeout"`
 	MaxSegmentSize       string        `yaml:"max_segment_size"`
 	DataDirectory        string        `yaml:"data_directory"`
+	Compaction           bool          `yaml:"compaction"`
 }
 
 type ReplicationConfig struct {
