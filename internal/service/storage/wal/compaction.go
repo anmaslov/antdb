@@ -2,7 +2,6 @@ package wal
 
 import (
 	"antdb/internal/service/compute"
-	"antdb/internal/service/storage/engine"
 	"bytes"
 	"context"
 	"encoding/gob"
@@ -129,7 +128,7 @@ func (c *Compaction) compact(segments []string) error {
 }
 
 func (c *Compaction) readUnits(segments []string) ([]*Unit, error) {
-	memoryTable := engine.NewMemoryTable()
+	memoryTable := make(map[string]string)
 	for _, segment := range segments {
 		file, err := os.ReadFile(path.Join(c.directory, segment))
 		if err != nil {
@@ -146,11 +145,11 @@ func (c *Compaction) readUnits(segments []string) ([]*Unit, error) {
 
 			for _, unit := range units {
 				if unit.Command == string(compute.SetCommand) {
-					memoryTable.Set(unit.Arguments[0], unit.Arguments[1])
+					memoryTable[unit.Arguments[0]] = unit.Arguments[1]
 					continue
 				}
 				if unit.Command == string(compute.DelCommand) {
-					memoryTable.Del(unit.Arguments[0])
+					delete(memoryTable, unit.Arguments[0])
 					continue
 				}
 			}
@@ -158,7 +157,7 @@ func (c *Compaction) readUnits(segments []string) ([]*Unit, error) {
 	}
 
 	var unitsData []*Unit
-	for key, val := range memoryTable.Export() {
+	for key, val := range memoryTable {
 		unitsData = append(unitsData, NewUnit(compute.SetCommand, []string{key, val}))
 	}
 

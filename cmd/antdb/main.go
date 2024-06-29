@@ -66,7 +66,7 @@ func main() {
 		}
 	}
 	if cfg.WAL.Compaction {
-		logger.Warn("disable replication for compaction")
+		logger.Warn("replication be disabled when compaction is enabled")
 		replica = nil
 	}
 

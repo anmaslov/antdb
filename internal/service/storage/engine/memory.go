@@ -36,15 +36,3 @@ func (s *MemoryTable) Del(key string) {
 
 	delete(s.data, key)
 }
-
-func (s *MemoryTable) Export() map[string]string {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	copyData := make(map[string]string, len(s.data))
-
-	for key, value := range s.data {
-		copyData[key] = value
-	}
-
-	return copyData
-}
