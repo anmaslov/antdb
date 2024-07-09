@@ -12,6 +12,7 @@ wal:
   flushing_batch_timeout: "1s"
   max_segment_size: "100b"
   data_directory: "tmp"
+  compaction: true
 replication:
   replica_type: "master"
   master_address: ":3232"
